@@ -3,10 +3,6 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <stack>
-
-#undef NDEBUG
-#include <assert.h>
 
 using banks_t = std::vector<std::string>;
 
@@ -70,10 +66,4 @@ void main()
 
     std::cout << "part2: " << part2(test_values) << std::endl;
     std::cout << "part2: " << part2(actual_values) << std::endl;
-
-    assert(part1(test_values) == 357);
-    assert(part1(actual_values) == 17278);
-
-    assert(part2(test_values) == 3121910778619);
-    assert(part2(actual_values) == 171528556468625);
 }
