@@ -5,10 +5,10 @@
 #include <sstream>
 
 struct problem_t {
-    std::vector<char> numbers;
+    std::vector<char> digits;
     int width = 0;
     int height = 0;
-    char& operator()(int x, int y){ return numbers[y*width + x]; }
+    char& operator()(int x, int y){ return digits[y*width + x]; }
 };
 
 problem_t load_input(const std::string& file){
@@ -16,7 +16,7 @@ problem_t load_input(const std::string& file){
     std::ifstream fs(file);
     std::string line;
     while (std::getline(fs, line)) {
-        std::copy(line.begin(), line.end(), std::back_inserter(ret.numbers));
+        std::copy(line.begin(), line.end(), std::back_inserter(ret.digits));
         ret.width = std::max(ret.width, (int)line.size());
         ret.height++;
     }
