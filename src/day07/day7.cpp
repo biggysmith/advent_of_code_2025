@@ -71,7 +71,7 @@ size_t timeline_travel(const pos_t& beam_pos, const grid_t& grid, cache_t& cache
     if(pos.y == grid.height){ return 1; } // end of beam
 
     if(grid(pos) == '^'){
-        if(cache.find(pos) != cache.end()){
+        if(cache.count(pos)){
             return cache[pos];
         }
         cache[pos] = timeline_travel({ pos.x-1, pos.y }, grid, cache) + timeline_travel({ pos.x+1, pos.y }, grid, cache);
