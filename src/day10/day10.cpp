@@ -3,15 +3,10 @@
 #include <string>
 #include <vector>
 #include <regex>
-#include <set>
 #include <unordered_set>
-#include <unordered_map>
-#include <queue>
 #include <numeric>
-#include <matrix.hpp>
-#include <functional>
+#include <queue>
 #include <omp.h>
-#include <timer.hpp>
 
 using light_t = std::string;
 using joltage_t = std::vector<int>;
