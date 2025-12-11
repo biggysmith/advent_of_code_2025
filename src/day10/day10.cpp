@@ -6,6 +6,8 @@
 #include <unordered_set>
 #include <numeric>
 #include <queue>
+#include <functional>
+#include <matrix.hpp>
 #include <omp.h>
 
 using light_t = std::string;
@@ -116,177 +118,168 @@ size_t part1(const machines_t& machines)
     return sum;
 }
 
-struct searcher_t 
-{
-    int N = 0, answer = INT_MAX;
-    std::vector<int> need, contain, masks;
-    std::vector<std::vector<int>> bits_of;
-
-    void build_bits() 
-    {
-        int M = (int)need.size();
-        bits_of.assign(N, {});
-        for(int i=0; i<N; ++i){
-            for(int j=0; j<M; ++j){
-                if(masks[i] & (1 << j)){
-                    bits_of[i].push_back(j);
-                }
-            }
-        }
-    }
-
-    int lower_bound() const 
-    {
-        int lb = 0;
-        for (int j = 0; j < (int)need.size(); ++j) {
-            if(!need[j]) continue;
-            if(!contain[j]) return INT_MAX;
-            lb = std::max(lb, (need[j] + contain[j] - 1) / contain[j]);
-        }
-        return lb;
-    }
-
-    int pick_best(uint32_t mask) const 
-    {
-        int best = -1;
-        int best_cnt = INT_MAX;
-        for (int i = 0; i < N; ++i) {
-            if (mask & (1u << i)) {
-                continue;
-            }
-            int cnt = INT_MAX;
-            for (int j : bits_of[i]) {
-                cnt = std::min(cnt, contain[j]);
-            }
-            if (cnt < best_cnt) {
-                best_cnt = cnt, best = i;
-            }
-        }
-        return best;
-    }
-
-    void dfs(uint32_t mask, int cur) 
-    {
-        if(cur >= answer) {
-            return;
-        }
-
-        if(mask == (1u << N) - 1) {
-            answer = std::min(answer, cur);
-            return;
-        }
-
-        int lb = lower_bound();
-        if (lb == INT_MAX || cur + lb >= answer) {
-            return;
-        }
-
-        int id = pick_best(mask);
-        const auto& covered = bits_of[id];
-
-        int best_cnt = INT_MAX;
-        for (int j : covered) {
-            best_cnt = std::min(best_cnt, contain[j]);
-        }
-
-        if (best_cnt == 1) {
-            int must = -1;
-            for(int j : covered){
-                if(contain[j] == 1){
-                    if(must == -1) {
-                        must = need[j];
-                    }else if(must != need[j]) {
-                        return;
-                    }
-                }
-            }
-
-            for(int j : covered){
-                if (must > need[j]) {
-                    return;
-                }
-            }
-
-            for(int j : covered) {
-                need[j] -= must, contain[j]--;
-            }
-
-            dfs(mask | (1u << id), cur + must);
-
-            for(int j : covered) {
-                need[j] += must;
-                contain[j]++;
-            }
-            return;
-        }
-
-        int mx = INT_MAX;
-        for(int j : covered) {
-            mx = std::min(mx, need[j]);
-            contain[j]--;
-        }
-        for(int j : covered) {
-            need[j] -= mx;
-        }
-
-        dfs(mask | (1u << id), cur + mx);
-
-        for(int take = 1; take <= mx; ++take) {
-            for (int j : covered) {
-                need[j]++;
-            }
-            dfs(mask | (1u << id), cur + mx - take);
-        }
-
-        for(int j : covered) {
-            contain[j]++;
-        }
-    }
-
-    int process(const machine_t& machine) 
-    {
-        for(auto& button : machine.buttons) {
-            int mask = 0;
-            for (int bit : button) {
-                mask |= (1 << bit);
-            }
-            masks.push_back(mask);
-        }
-
-        N = (int)masks.size();
-        need = machine.joltages;
-
-        int M = (int)machine.joltages.size();
-        contain.assign(M, 0);
-
-        for(int p : masks){
-            for(int i = 0; i < M; ++i){
-                if(p & (1 << i)){
-                    contain[i]++;
-                }
-            }
-        }
-
-        answer = INT_MAX;
-        build_bits();
-        dfs(0u, 0);
-        return answer;
-    }
+template<typename Z>
+struct min_press_result {
+    bool found = false;
+    Z best_cost = std::numeric_limits<Z>::max();
+    std::vector<Z> best_solution;
 };
+
+template<typename Z>
+void estimate_t_upper_bounds(const linear_solution<Z>& sol, std::vector<Z>& tmax)
+{
+    size_t k = sol.free_cols.size();
+    size_t n = sol.n_vars;
+
+    tmax.assign(k, std::numeric_limits<Z>::max() / 4);
+
+    for (size_t j = 0; j < k; ++j) {
+        for (size_t i = 0; i < n; ++i) {
+            const auto& p = sol.particular[i];
+            const auto& d = sol.dirs[j][i];
+
+            if (d.num == 0) continue;
+
+            Z num = -p.num * d.den;
+            Z den =  p.den * d.num;
+
+            if (den < 0) {
+                Z hi = num / den;
+                tmax[j] = std::min(tmax[j], hi);
+            }
+        }
+
+        tmax[j] += 60; // found by hand :(
+        if (tmax[j] < 0)
+            tmax[j] = 0;
+    }
+}
+
+template<typename Z>
+void reorder_free_variables(linear_solution<Z>& sol, std::vector<Z>& tmax)
+{
+    size_t k = sol.free_cols.size();
+    std::vector<size_t> order(k);
+    for (size_t i = 0; i < k; ++i)
+        order[i] = i;
+
+    std::sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        return tmax[a] < tmax[b];
+    });
+
+    auto remap = [&](auto& v) {
+        auto old = v;
+        for (size_t i = 0; i < k; ++i)
+            v[i] = old[order[i]];
+    };
+
+    remap(tmax);
+    remap(sol.free_cols);
+    remap(sol.dirs);
+}
+
+template<typename Z>
+min_press_result<Z> find_min_press_solution(linear_solution<Z> sol) {
+    min_press_result<Z> result;
+
+    if (sol.inconsistent)
+        return result;
+
+    const size_t n = sol.n_vars;
+    const size_t k = sol.free_cols.size();
+
+    if (k == 0) {
+        Z cost = 0;
+        std::vector<Z> xi(n);
+
+        for (size_t i = 0; i < n; ++i) {
+            const auto& v = sol.particular[i];
+            if (v.den != 1 || v.num < 0)
+                return result;
+            xi[i] = v.num;
+            cost += v.num;
+        }
+
+        result.found = true;
+        result.best_cost = cost;
+        result.best_solution = xi;
+        return result;
+    }
+
+    std::vector<Z> tmax;
+    estimate_t_upper_bounds(sol, tmax);
+    reorder_free_variables(sol, tmax);
+
+    std::vector<Z> t(k, 0);
+    std::vector<rational<Z>> x = sol.particular;
+
+    std::function<void(size_t)> dfs = [&](size_t idx)
+    {
+        if (idx == k) {
+            Z cost = 0;
+            std::vector<Z> xi(n);
+
+            for (size_t i = 0; i < n; ++i) {
+                const auto& v = x[i];
+                if (v.den != 1 || v.num < 0)
+                    return;
+                xi[i] = v.num;
+                cost += v.num;
+                if (cost >= result.best_cost)
+                    return;
+            }
+
+            result.found = true;
+            result.best_cost = cost;
+            result.best_solution = xi;
+            return;
+        };
+
+        for (Z v = 0; v <= tmax[idx]; ++v) {
+            t[idx] = v;
+
+            auto old_x = x;
+            for (size_t i = 0; i < n; ++i)
+                x[i] += rational<Z>(v) * sol.dirs[idx][i];
+
+            dfs(idx + 1);
+            x = old_x;
+        }
+    };
+
+    dfs(0);
+    return result;
+}
 
 int64_t part2(const machines_t& machines)
 {
-    std::vector<int> sums(machines.size(), 0);
+    std::vector<int64_t> sums(machines.size(), 0);
 
-    #pragma omp parallel for
-    for(int i=0; i<machines.size(); ++i){
-        auto& machine = machines[i];
-        searcher_t searcher;
-        int sub_sum = searcher.process(machine);
-        sums[i] = sub_sum;
+    for (int i = 0; i < machines.size(); ++i) {
+        const auto& machine = machines[i];
+
+        size_t num_buttons = machine.buttons.size();
+        size_t num_outputs = machine.joltages.size();
+
+        matrix<rational<int64_t>> A(num_outputs, num_buttons);
+
+        for (size_t btn = 0; btn < num_buttons; ++btn)
+            for (int out : machine.buttons[btn])
+                A(out, btn) += 1;
+
+        std::vector<rational<int64_t>> b(num_outputs);
+        for (size_t out = 0; out < num_outputs; ++out)
+            b[out] = machine.joltages[out];
+
+        auto Ab = augment(A, b);
+        rref(Ab);
+
+        auto sol = extract_solution<int64_t>(Ab);
+        auto res = find_min_press_solution(sol);
+        sums[i] = res.best_cost;
     }
 
-    return std::accumulate(sums.begin(), sums.end(), 0);
+    return std::accumulate(sums.begin(), sums.end(), 0LL);
 }
 
 void main() 
