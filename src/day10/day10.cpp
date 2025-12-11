@@ -294,7 +294,7 @@ int64_t part2(const machines_t& machines)
     std::vector<int64_t> sums(machines.size(), 0);
 
     #pragma omp parallel for
-    for (int i = 0; i < machines.size(); ++i) {
+    for(int i=0; i<machines.size(); ++i) {
         const auto& machine = machines[i];
 
         size_t num_buttons = machine.buttons.size();
@@ -302,13 +302,16 @@ int64_t part2(const machines_t& machines)
 
         matrix<rational<int64_t>> A(num_outputs, num_buttons, rational<int64_t>(0));
 
-        for (size_t btn = 0; btn < num_buttons; ++btn)
-            for (int out : machine.buttons[btn])
+        for(int btn=0; btn<num_buttons; ++btn){
+            for(int out : machine.buttons[btn]){
                 A(out, btn) = 1;
+            }
+        }
 
         std::vector<rational<int64_t>> b(num_outputs);
-        for (size_t out = 0; out < num_outputs; ++out)
+        for(int out=0; out<num_outputs; ++out){
             b[out] = machine.joltages[out];
+        }
 
         auto Ab = augment(A, b);
         rref(Ab);
