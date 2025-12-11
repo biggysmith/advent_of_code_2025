@@ -12,10 +12,10 @@ struct rational {
     rational(Z n, Z d) : num(n), den(d) { normalize(); }
 
     void normalize() {
-        if (den < 0) { den = -den; num = -num; }
-        if (den == 0) { num = 1; return; }
+        if(den < 0) { den = -den; num = -num; }
+        if(den == 0) { num = 1; return; }
         Z g = std::gcd(num, den);
-        if (g != 0) { num /= g; den /= g; }
+        if(g != 0) { num /= g; den /= g; }
     }
 
     bool isZero() const { return num == 0; }
@@ -73,8 +73,8 @@ struct matrix {
     const T& operator()(size_t r, size_t c) const { return data[r * cols + c]; }
 
     void swap_rows(size_t a, size_t b) {
-        if (a == b) return;
-        for (size_t c = 0; c < cols; ++c)
+        if(a == b) return;
+        for(size_t c = 0; c < cols; ++c)
             std::swap((*this)(a, c), (*this)(b, c));
     }
 };
@@ -86,12 +86,12 @@ int rref(matrix<rational<Z>>& A)
     size_t lead = 0;
     int rank = 0;
 
-    for (size_t r = 0; r < rows && lead < cols; ++r) {
+    for(size_t r = 0; r < rows && lead < cols; ++r) {
         size_t pivot = r;
         while (pivot < rows && A(pivot, lead).isZero())
             ++pivot;
 
-        if (pivot == rows) {
+        if(pivot == rows) {
             ++lead;
             --r;
             continue;
@@ -100,14 +100,14 @@ int rref(matrix<rational<Z>>& A)
         A.swap_rows(r, pivot);
 
         auto div = A(r, lead);
-        for (size_t c = 0; c < cols; ++c)
+        for(size_t c = 0; c < cols; ++c)
             A(r, c) /= div;
 
-        for (size_t rr = 0; rr < rows; ++rr) {
-            if (rr == r) continue;
+        for(size_t rr = 0; rr < rows; ++rr) {
+            if(rr == r) continue;
             auto f = A(rr, lead);
-            if (f.isZero()) continue;
-            for (size_t c = 0; c < cols; ++c)
+            if(f.isZero()) continue;
+            for(size_t c = 0; c < cols; ++c)
                 A(rr, c) -= f * A(r, c);
         }
 
@@ -122,8 +122,8 @@ template<typename Z>
 matrix<rational<Z>> augment(const matrix<rational<Z>>& A, const std::vector<rational<Z>>& b)
 {
     matrix<rational<Z>> out(A.rows, A.cols + 1);
-    for (size_t r = 0; r < A.rows; ++r) {
-        for (size_t c = 0; c < A.cols; ++c)
+    for(size_t r = 0; r < A.rows; ++r) {
+        for(size_t c = 0; c < A.cols; ++c)
             out(r, c) = A(r, c);
         out(r, A.cols) = b[r];
     }
@@ -155,12 +155,12 @@ linear_solution<Z> extract_solution(const matrix<rational<Z>>& Ab)
     sol.pivot_col_by_row.assign(rows, -1);
     sol.is_pivot.assign(n_vars, false);
 
-    for (size_t r = 0; r < rows; ++r) {
+    for(size_t r = 0; r < rows; ++r) {
         size_t c = 0;
         while (c < n_vars && Ab(r, c).isZero()) ++c;
 
-        if (c == n_vars) {
-            if (!Ab(r, n_vars).isZero()) {
+        if(c == n_vars) {
+            if(!Ab(r, n_vars).isZero()) {
                 sol.inconsistent = true;
                 return sol;
             }
@@ -170,26 +170,26 @@ linear_solution<Z> extract_solution(const matrix<rational<Z>>& Ab)
         }
     }
 
-    for (size_t c = 0; c < n_vars; ++c)
-        if (!sol.is_pivot[c]) sol.free_cols.push_back((int)c);
+    for(size_t c = 0; c < n_vars; ++c)
+        if(!sol.is_pivot[c]) sol.free_cols.push_back((int)c);
 
-    for (size_t r = 0; r < rows; ++r) {
+    for(size_t r = 0; r < rows; ++r) {
         int pc = sol.pivot_col_by_row[r];
-        if (pc >= 0)
+        if(pc >= 0)
             sol.particular[pc] = Ab(r, n_vars);
     }
 
     size_t k = sol.free_cols.size();
     sol.dirs.resize(k);
 
-    for (size_t j = 0; j < k; ++j) {
+    for(size_t j = 0; j < k; ++j) {
         int f = sol.free_cols[j];
         std::vector<rational<Z>> dir(n_vars, rational<Z>(0));
         dir[f] = rational<Z>(1);
 
-        for (size_t r = 0; r < rows; ++r) {
+        for(size_t r = 0; r < rows; ++r) {
             int pc = sol.pivot_col_by_row[r];
-            if (pc >= 0)
+            if(pc >= 0)
                 dir[pc] -= Ab(r, f);
         }
 
