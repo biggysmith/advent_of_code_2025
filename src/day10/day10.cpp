@@ -316,7 +316,7 @@ int64_t part2(const machines_t& machines)
         auto Ab = augment(A, b);
         rref(Ab);
 
-        auto sol = extract_solution<int64_t>(Ab);
+        auto sol = extract_solution(Ab);
         auto xmax = compute_button_upper_bounds(A, b);
         auto res = solve(Ab, sol, xmax);
 
